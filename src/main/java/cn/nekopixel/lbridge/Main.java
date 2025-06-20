@@ -73,22 +73,17 @@ public class Main {
         }
 
         try {
-            // 创建ConfigManager
             try (InputStream configStream = Files.newInputStream(configPath)) {
                 this.configManager = new ConfigManager(configStream);
             }
             
-            // 创建Checker（使用旧的Toml方式，保持兼容性）
             Toml toml = new Toml().read(configPath.toFile());
             this.checker = new Checker(toml);
 
-            // 创建MessageManager（使用新的ConfigManager）
             try (InputStream messageStream = Files.newInputStream(messagePath)) {
                 this.messageManager = new MessageManager(messageStream, configManager);
             }
 
-            // 显示RandomID配置信息
-            logger.info("RandomID配置: {}", messageManager.getRandomIdInfo());
             logger.info("加载完成！");
         } catch (Exception e) {
             logger.error("无法加载配置文件", e);
