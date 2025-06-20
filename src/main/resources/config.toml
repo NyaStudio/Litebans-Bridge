@@ -9,3 +9,7 @@ pass = "yourpassword"
 minimum-idle = 5
 maximum-pool-size = 10
 connection-timeout = 30000
+
+[randomid]
+seed = 114514
+offset = 12500

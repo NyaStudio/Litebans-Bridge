@@ -1,6 +1,8 @@
-package cn.nekopixel.lbridge.utils;
+package cn.nekopixel.lbridge.manager;
 
 import cn.nekopixel.lbridge.entity.BanRecord;
+import cn.nekopixel.lbridge.utils.ColorParser;
+import cn.nekopixel.lbridge.utils.randomID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.yaml.snakeyaml.Yaml;
@@ -13,12 +15,24 @@ import java.util.Map;
 public class MessageManager {
     private final Map<String, Object> messages;
     private final SimpleDateFormat dateFormat;
+    private final ConfigManager configManager;
+    private randomID randomId;
 
     @SuppressWarnings("unchecked")
-    public MessageManager(InputStream messageFile) {
+    public MessageManager(InputStream messageFile, ConfigManager configManager) {
         Yaml yaml = new Yaml();
         messages = yaml.load(messageFile);
         dateFormat = new SimpleDateFormat(messages.get("time_format").toString());
+        this.configManager = configManager;
+    }
+
+    private synchronized randomID getRandomId() {
+        if (randomId == null) {
+            long seed = configManager.getRandomIdSeed();
+            int offset = configManager.getRandomIdOffset();
+            randomId = new randomID(seed, offset);
+        }
+        return randomId;
     }
 
     public Component getBanMessage(BanRecord ban) {
@@ -47,6 +61,12 @@ public class MessageManager {
                 .replace("$executor", ban.getBannedByName())
                 .replace("$reason", ban.getReason())
                 .replace("$duration", formatDuration(ban.getTime(), ban.getUntil()));
+
+        if (message.contains("$idRandom")) {
+            message = message.replace("$idRandom", getRandomId().convert(ban.getId()));
+        }
+        
+        message = message.replace("$id", String.valueOf(ban.getId()));
 
         return ColorParser.parse(message);
     }
@@ -114,5 +134,9 @@ public class MessageManager {
             }
         }
         return value.toString();
+    }
+    
+    public String getRandomIdInfo() {
+        return getRandomId().getInfo();
     }
 } 
