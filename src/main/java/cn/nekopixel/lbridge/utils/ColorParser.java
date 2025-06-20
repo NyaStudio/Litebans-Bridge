@@ -37,7 +37,8 @@ public class ColorParser {
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
         String[] parts = message.split("\n");
         
-        for (String part : parts) {
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
             String[] sections = part.split("(?=&[0-9a-fk-or])");
             FormatState state = new FormatState();
 
@@ -133,7 +134,11 @@ public class ColorParser {
                     builder.append(state.apply(Component.text(section)));
                 }
             }
-            builder.append(Component.newline());
+            
+            // 只在不是最后一行时添加换行符
+            if (i < parts.length - 1) {
+                builder.append(Component.newline());
+            }
         }
 
         return builder.build();
