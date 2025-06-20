@@ -1,0 +1,5 @@
+cn\nekopixel\lbridge\entity\BanRecord.class
+cn\nekopixel\lbridge\utils\Checker.class
+cn\nekopixel\lbridge\Main.class
+cn\nekopixel\lbridge\mapper\BanMapper.class
+cn\nekopixel\lbridge\utils\MessageManager.class

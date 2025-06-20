@@ -1,0 +1,178 @@
+package cn.nekopixel.lbridge.utils;
+
+import cn.nekopixel.lbridge.entity.BanRecord;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import org.yaml.snakeyaml.Yaml;
+
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+
+public class MessageManager {
+    private final Map<String, Object> messages;
+    private final SimpleDateFormat dateFormat;
+
+    @SuppressWarnings("unchecked")
+    public MessageManager(InputStream messageFile) {
+        Yaml yaml = new Yaml();
+        messages = yaml.load(messageFile);
+        dateFormat = new SimpleDateFormat(messages.get("time_format").toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private String formatDuration(long start, long end) {
+        if (end == 0) {
+            Object forever = messages.get("duration.forever");
+            return forever != null ? forever.toString() : "永久";
+        }
+
+        if (end < System.currentTimeMillis()) {
+            Object expired = messages.get("duration.expired");
+            return expired != null ? expired.toString() : "已过期";
+        }
+
+        long duration = end - start;
+        long seconds = duration / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        StringBuilder sb = new StringBuilder();
+        
+        String separator = getMessageWithDefault("duration.separator", ", ");
+        String format = getMessageWithDefault("duration.format", "%d %s");
+
+        if (days > 0) {
+            sb.append(String.format(format, days, 
+                days == 1 ? getMessageWithDefault("duration.day", "天") 
+                         : getMessageWithDefault("duration.days", "天")));
+        }
+        if (hours % 24 > 0) {
+            if (sb.length() > 0) sb.append(separator);
+            sb.append(String.format(format, hours % 24, 
+                hours % 24 == 1 ? getMessageWithDefault("duration.hour", "小时") 
+                               : getMessageWithDefault("duration.hours", "小时")));
+        }
+        if (minutes % 60 > 0) {
+            if (sb.length() > 0) sb.append(separator);
+            sb.append(String.format(format, minutes % 60, 
+                minutes % 60 == 1 ? getMessageWithDefault("duration.minute", "分钟") 
+                                : getMessageWithDefault("duration.minutes", "分钟")));
+        }
+
+        if (sb.length() == 0) {
+            sb.append(String.format(format, 1, getMessageWithDefault("duration.minute", "分钟")));
+        }
+
+        return sb.toString();
+    }
+
+    private String getMessageWithDefault(String path, String defaultValue) {
+        Object value = messages;
+        for (String key : path.split("\\.")) {
+            if (value instanceof Map) {
+                value = ((Map<?, ?>) value).get(key);
+                if (value == null) {
+                    return defaultValue;
+                }
+            } else {
+                return defaultValue;
+            }
+        }
+        return value.toString();
+    }
+
+    public Component getBanMessage(BanRecord ban) {
+        if (ban == null) {
+            return Component.text("无效的封禁记录")
+                    .color(NamedTextColor.RED);
+        }
+
+        String baseMessage = getMessageWithDefault("banned_message_base", 
+            "&c你已被服务器封禁！\n\n封禁时间: $dateStart\n封禁者: $executor\n原因: $reason");
+        String appealMessage = getMessageWithDefault("banned_message_appeal_message", "");
+        String banMessage;
+
+        if (ban.getUntil() == 0) {
+            banMessage = getMessageWithDefault("banned_message_permanent", 
+                "$base\n你已被永久封禁！\n$appealMessage");
+        } else {
+            banMessage = getMessageWithDefault("banned_message", 
+                "$base\n到期时间: $duration\n$appealMessage");
+        }
+
+        String message = banMessage
+                .replace("$base", baseMessage)
+                .replace("$appealMessage", appealMessage)
+                .replace("$dateStart", formatDate(ban.getTime()))
+                .replace("$executor", ban.getBannedByName())
+                .replace("$reason", ban.getReason())
+                .replace("$duration", formatDuration(ban.getTime(), ban.getUntil()));
+
+        return parseColorCodes(message);
+    }
+
+    private String formatDate(long timestamp) {
+        return dateFormat.format(new Date(timestamp));
+    }
+
+    private Component parseColorCodes(String message) {
+        net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
+        String[] parts = message.split("\n");
+        
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            String[] colorParts = part.split("&");
+            
+            for (int j = 0; j < colorParts.length; j++) {
+                if (j == 0 && !part.startsWith("&")) {
+                    builder.append(Component.text(colorParts[j]));
+                    continue;
+                }
+                
+                if (colorParts[j].isEmpty()) continue;
+                
+                char colorCode = colorParts[j].charAt(0);
+                String text = colorParts[j].substring(1);
+                
+                TextColor color = getColorFromCode(colorCode);
+                if (color != null) {
+                    builder.append(Component.text(text, color));
+                } else {
+                    builder.append(Component.text("&" + colorParts[j]));
+                }
+            }
+            
+            if (i < parts.length - 1) {
+                builder.append(Component.newline());
+            }
+        }
+        
+        return builder.build();
+    }
+
+    private TextColor getColorFromCode(char code) {
+        return switch (code) {
+            case '0' -> NamedTextColor.BLACK;
+            case '1' -> NamedTextColor.DARK_BLUE;
+            case '2' -> NamedTextColor.DARK_GREEN;
+            case '3' -> NamedTextColor.DARK_AQUA;
+            case '4' -> NamedTextColor.DARK_RED;
+            case '5' -> NamedTextColor.DARK_PURPLE;
+            case '6' -> NamedTextColor.GOLD;
+            case '7' -> NamedTextColor.GRAY;
+            case '8' -> NamedTextColor.DARK_GRAY;
+            case '9' -> NamedTextColor.BLUE;
+            case 'a' -> NamedTextColor.GREEN;
+            case 'b' -> NamedTextColor.AQUA;
+            case 'c' -> NamedTextColor.RED;
+            case 'd' -> NamedTextColor.LIGHT_PURPLE;
+            case 'e' -> NamedTextColor.YELLOW;
+            case 'f' -> NamedTextColor.WHITE;
+            default -> null;
+        };
+    }
+} 

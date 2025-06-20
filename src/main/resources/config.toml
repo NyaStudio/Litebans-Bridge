@@ -1,0 +1,11 @@
+[database]
+host = "localhost"
+port = 3306
+name = "litebans"
+user = "litebans"
+pass = "yourpassword"
+
+[database.pool]
+minimum-idle = 5
+maximum-pool-size = 10
+connection-timeout = 30000
