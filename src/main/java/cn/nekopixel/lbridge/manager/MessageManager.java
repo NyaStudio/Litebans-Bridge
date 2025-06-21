@@ -86,7 +86,7 @@ public class MessageManager {
             return expired != null ? expired.toString() : "已过期";
         }
 
-        long duration = end - start;
+        long duration = end - System.currentTimeMillis();
         long seconds = duration / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
@@ -113,9 +113,15 @@ public class MessageManager {
                 minutes % 60 == 1 ? getMessageWithDefault("duration.minute", "分钟") 
                                 : getMessageWithDefault("duration.minutes", "分钟")));
         }
+        if (seconds % 60 > 0) {
+            if (sb.length() > 0) sb.append(separator);
+            sb.append(String.format(format, seconds % 60, 
+                seconds % 60 == 1 ? getMessageWithDefault("duration.second", "秒") 
+                                : getMessageWithDefault("duration.seconds", "秒")));
+        }
 
         if (sb.length() == 0) {
-            sb.append(String.format(format, 1, getMessageWithDefault("duration.minute", "分钟")));
+            sb.append(String.format(format, 1, getMessageWithDefault("duration.second", "秒")));
         }
 
         return sb.toString();
