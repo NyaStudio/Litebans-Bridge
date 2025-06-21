@@ -6,62 +6,73 @@
 
 package cn.nekopixel.lbridge.utils;
 
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
+
 public class randomID {
-    private final int xorKey;
     private final int offset;
+    private final Map<Integer, String> numToCode = new HashMap<>();
+    private final Map<String, Integer> codeToNum = new HashMap<>();
 
     public randomID(long seed, int offset) {
         this.offset = offset;
-        
-        if (seed == 0) {
-            seed = System.currentTimeMillis();
-        }
-        this.xorKey = generateXorKey(seed);
+        initCodes(seed == 0 ? System.currentTimeMillis() : seed);
     }
-    
+
     public randomID(long seed) {
         this(seed, 12500);
     }
 
-    private int generateXorKey(long seed) {
-        long hash = seed;
-        hash ^= hash >>> 33;
-        hash *= 0x9E3779B97F4A7C15L;
-        hash ^= hash >>> 33;
-        hash *= 0x9E3779B97F4A7C15L;
-        hash ^= hash >>> 33;
-        
-        int key = (int)(hash & 0xFFFFFFFFL);
-        return key != 0 ? key : 0x9A7B3C2D;
+    private void initCodes(long seed) {
+        Random r = new Random(seed);
+        for (int i = 0; i <= 999; i++) {
+            String code;
+            do {
+                code = Integer.toHexString(r.nextInt(0x1000));
+                while (code.length() < 3) code = "0" + code;
+            } while (codeToNum.containsKey(code));
+            numToCode.put(i, code);
+            codeToNum.put(code, i);
+        }
     }
 
     public String convert(long id) {
-        try {
-            int offsetId = (int)(id + offset);
-            int encoded = offsetId ^ xorKey;
-            String result = String.format("%08X", encoded);
-            
-            return result;
-        } catch (Exception e) {
-            return "INVALID";
+        long value = id + offset;
+        String numStr = String.valueOf(value);
+        int padding = (3 - numStr.length() % 3) % 3;
+        numStr = "0".repeat(padding) + numStr;
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < numStr.length(); i += 3) {
+            int num = Integer.parseInt(numStr.substring(i, i + 3));
+            sb.append(numToCode.get(num));
         }
+        return sb.toString().toUpperCase(Locale.ROOT);
     }
 
     public long reveal(String code) {
-        if (code == null || code.length() != 8) {
-            return -1;
+        if (code == null) return -1;
+        code = code.toLowerCase(Locale.ROOT);
+        if (code.length() % 3 != 0) return -1;
+
+        StringBuilder numStr = new StringBuilder();
+        for (int i = 0; i < code.length(); i += 3) {
+            Integer num = codeToNum.get(code.substring(i, i + 3));
+            if (num == null) return -1;
+            numStr.append(String.format("%03d", num));
         }
 
         try {
-            int encoded = (int)Long.parseLong(code.toLowerCase(), 16);
-            int offsetId = encoded ^ xorKey;
-            return offsetId - offset;
-        } catch (Exception e) {
+            long value = Long.parseLong(numStr.toString());
+            return value - offset;
+        } catch (NumberFormatException e) {
             return -1;
         }
     }
-    
+
     public String getInfo() {
-        return String.format("XOR Key: 0x%08X, Offset: %d", xorKey, offset);
+        return "Offset=" + offset + ", mappings=" + numToCode.size();
     }
 }
