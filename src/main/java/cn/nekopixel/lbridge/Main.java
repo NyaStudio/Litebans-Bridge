@@ -2,11 +2,12 @@ package cn.nekopixel.lbridge;
 
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.connection.PreLoginEvent;
+import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.Player;
 import cn.nekopixel.lbridge.utils.Checker;
 import cn.nekopixel.lbridge.manager.ConfigManager;
 import cn.nekopixel.lbridge.manager.MessageManager;
@@ -21,7 +22,7 @@ import java.nio.file.Path;
 @Plugin(
     id = "litebans-bridge",
     name = "Litebans-Bridge",
-    version = "1.0.1",
+    version = "1.1.0",
     description = "A bridge between Velocity and Litebans",
     authors = {"BLxcwg666"}
 )
@@ -91,22 +92,23 @@ public class Main {
     }
 
     @Subscribe
-    public void onPreLogin(PreLoginEvent event) {
+    public void onLogin(LoginEvent event) {
         if (checker == null || messageManager == null) {
             logger.error("插件未初始化，跳过检查");
             return;
         }
 
-        String username = event.getUsername();
+        Player player = event.getPlayer();
+        String username = player.getUsername();
         try {
             if (checker.isBanned(username)) {
-                event.setResult(PreLoginEvent.PreLoginComponentResult.denied(
+                event.setResult(LoginEvent.ComponentResult.denied(
                         messageManager.getBanMessage(checker.getBanRecord())
                 ));
             }
         } catch (Exception e) {
             logger.error("检查玩家 {} 的封禁状态时发生错误", username, e);
-            event.setResult(PreLoginEvent.PreLoginComponentResult.allowed());
+            event.setResult(LoginEvent.ComponentResult.allowed());
         }
     }
 }
