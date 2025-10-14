@@ -135,7 +135,6 @@ public class ColorParser {
                 }
             }
             
-            // 只在不是最后一行时添加换行符
             if (i < parts.length - 1) {
                 builder.append(Component.newline());
             }

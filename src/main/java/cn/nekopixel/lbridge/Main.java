@@ -48,7 +48,7 @@ public class Main {
             try {
                 Files.createDirectories(dataDirectory);
             } catch (IOException e) {
-                logger.error("无法创建配置目录", e);
+                logger.error("Failed to create config dir", e);
                 return;
             }
         }
@@ -58,7 +58,7 @@ public class Main {
             try (InputStream in = getClass().getResourceAsStream("/config.toml")) {
                 Files.copy(in, configPath);
             } catch (IOException e) {
-                logger.error("无法创建默认配置文件", e);
+                logger.error("Failed to create config.toml", e);
                 return;
             }
         }
@@ -68,7 +68,7 @@ public class Main {
             try (InputStream in = getClass().getResourceAsStream("/messages.yml")) {
                 Files.copy(in, messagePath);
             } catch (IOException e) {
-                logger.error("无法创建消息配置文件", e);
+                logger.error("Failed to create message.yml", e);
                 return;
             }
         }
@@ -85,16 +85,16 @@ public class Main {
                 this.messageManager = new MessageManager(messageStream, configManager);
             }
 
-            logger.info("加载完成！");
+            logger.info("Enabled!");
         } catch (Exception e) {
-            logger.error("无法加载配置文件", e);
+            logger.error("Failed to load config", e);
         }
     }
 
     @Subscribe
     public void onLogin(LoginEvent event) {
         if (checker == null || messageManager == null) {
-            logger.error("插件未初始化，跳过检查");
+            logger.error("Plugin not initialized!");
             return;
         }
 
@@ -107,7 +107,7 @@ public class Main {
                 ));
             }
         } catch (Exception e) {
-            logger.error("检查玩家 {} 的封禁状态时发生错误", username, e);
+            logger.error("Error while check ban stats for {}", username, e);
             event.setResult(LoginEvent.ComponentResult.allowed());
         }
     }

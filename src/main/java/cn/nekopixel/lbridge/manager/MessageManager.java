@@ -37,7 +37,7 @@ public class MessageManager {
 
     public Component getBanMessage(BanRecord ban) {
         if (ban == null) {
-            return Component.text("无效的封禁记录")
+            return Component.text("Invalid ban record")
                     .color(NamedTextColor.RED);
         }
 

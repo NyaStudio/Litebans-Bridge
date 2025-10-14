@@ -20,7 +20,7 @@ public class Checker {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("MySQL 驱动加载失败", e);
+            throw new RuntimeException("Failed to load MySQL driver", e);
         }
 
         Toml dbConfig = config.getTable("database");
@@ -55,7 +55,7 @@ public class Checker {
             if (dataSource != null) {
                 dataSource.close();
             }
-            throw new RuntimeException("初始化 MyBatis 失败", e);
+            throw new RuntimeException("Failed to init MyBatis", e);
         }
     }
 
