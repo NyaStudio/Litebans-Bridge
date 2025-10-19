@@ -22,7 +22,7 @@ import java.nio.file.Path;
 @Plugin(
     id = "litebans-bridge",
     name = "Litebans-Bridge",
-    version = "1.1.0",
+    version = "1.2.0",
     description = "A bridge between Velocity and Litebans",
     authors = {"BLxcwg666"}
 )
