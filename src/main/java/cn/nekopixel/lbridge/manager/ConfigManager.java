@@ -43,11 +43,7 @@ public class ConfigManager {
         return config.getLong("database.pool.connection-timeout", 30000L);
     }
 
-    public long getRandomIdSeed() {
-        return config.getLong("randomid.seed", 0L);
+    public String getRandomIdSecret() {
+        return config.getString("randomid.secret", "");
     }
-
-    public int getRandomIdOffset() {
-        return Math.toIntExact(config.getLong("randomid.offset", 12500L));
-    }
-} 
+}

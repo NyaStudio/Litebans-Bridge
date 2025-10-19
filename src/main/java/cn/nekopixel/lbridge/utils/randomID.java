@@ -1,78 +1,175 @@
-// 首先我要声明一下，Litebans 的这个 idRandom 是
-// The ID of the punishment in the database, converted to a randomized, unpredictable, but fully reversible ID
-// 所以它可以说是完全没有正确答案，无法 100% 还原算法且无法每次计算都相同
-// 所以我只保证这个东西它可以还原出数据库里的自增 ID，不要见怪说怎么跟别的子服算的不一样
-// 如果你有意见，你来写一个更好的
-
 package cn.nekopixel.lbridge.utils;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
 
 public class randomID {
-    private final int offset;
-    private final Map<Integer, String> numToCode = new HashMap<>();
-    private final Map<String, Integer> codeToNum = new HashMap<>();
+    private static final int BLOCK_SIZE = 3;
+    private static final int MINIMUM_OUTPUT_SIZE = BLOCK_SIZE * 2;
+    private static final long ERROR = -1L;
 
-    public randomID(long seed, int offset) {
-        this.offset = offset;
-        initCodes(seed == 0 ? System.currentTimeMillis() : seed);
-    }
+    private final int shuffleSecret;
+    private final String[] shuffle = new String[1000];
+    private final Map<String, Integer> unshuffle = new HashMap<>(1000);
 
-    public randomID(long seed) {
-        this(seed, 12500);
-    }
-
-    private void initCodes(long seed) {
-        Random r = new Random(seed);
-        for (int i = 0; i <= 999; i++) {
-            String code;
-            do {
-                code = Integer.toHexString(r.nextInt(0x1000));
-                while (code.length() < 3) code = "0" + code;
-            } while (codeToNum.containsKey(code));
-            numToCode.put(i, code);
-            codeToNum.put(code, i);
+    public randomID(String input) {
+        if (input == null) {
+            throw new IllegalArgumentException("Random ID secret cannot be null.");
         }
+        String[] parts = input.split(":", 2);
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Random ID secret must contain ':' separating the key and mapping.");
+        }
+        try {
+            this.shuffleSecret = Integer.parseInt(parts[0]);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Random ID secret prefix must be numeric.", ex);
+        }
+        buildShuffleTables(parts[1]);
     }
 
     public String convert(long id) {
-        long value = id + offset;
-        String numStr = String.valueOf(value);
-        int padding = (3 - numStr.length() % 3) % 3;
-        numStr = "0".repeat(padding) + numStr;
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < numStr.length(); i += 3) {
-            int num = Integer.parseInt(numStr.substring(i, i + 3));
-            sb.append(numToCode.get(num));
+        try {
+            long secretValue = id + shuffleSecret;
+            if (secretValue < 0) {
+                throw new IllegalStateException("Negative secret value.");
+            }
+            String padded = leftPadInflate(Long.toString(secretValue));
+            StringBuilder output = new StringBuilder(Math.max(padded.length(), MINIMUM_OUTPUT_SIZE));
+            boolean firstBlock = true;
+            for (int i = 0; i < padded.length(); i += BLOCK_SIZE) {
+                String block = padded.substring(i, i + BLOCK_SIZE);
+                if (!firstBlock) {
+                    if ("000".equals(block)) {
+                        output.append('m');
+                    } else if (block.startsWith("00")) {
+                        output.append('v');
+                    } else if (block.charAt(0) == '0') {
+                        output.append('z');
+                    }
+                }
+                output.append(shuffleIn(block));
+                firstBlock = false;
+            }
+            return output.toString().toUpperCase(Locale.ROOT);
+        } catch (RuntimeException ex) {
+            return "error";
         }
-        return sb.toString().toUpperCase(Locale.ROOT);
     }
 
-    public long reveal(String code) {
-        if (code == null) return -1;
-        code = code.toLowerCase(Locale.ROOT);
-        if (code.length() % 3 != 0) return -1;
-
-        StringBuilder numStr = new StringBuilder();
-        for (int i = 0; i < code.length(); i += 3) {
-            Integer num = codeToNum.get(code.substring(i, i + 3));
-            if (num == null) return -1;
-            numStr.append(String.format("%03d", num));
+    public long reveal(String input) {
+        if (input == null) {
+            return ERROR;
         }
-
         try {
-            long value = Long.parseLong(numStr.toString());
-            return value - offset;
-        } catch (NumberFormatException e) {
-            return -1;
+            String str = input.toLowerCase(Locale.ROOT);
+            StringBuilder output = new StringBuilder(Math.max(str.length(), MINIMUM_OUTPUT_SIZE));
+            StringBuilder currentBlock = new StringBuilder(BLOCK_SIZE);
+            int pad = 0;
+
+            for (int i = 0; i < str.length(); i++) {
+                char ch = str.charAt(i);
+                switch (ch) {
+                    case 'm':
+                        pad = 3;
+                        break;
+                    case 'v':
+                        pad = 2;
+                        break;
+                    case 'z':
+                        pad = 1;
+                        break;
+                    default:
+                        currentBlock.append(ch);
+                        if (currentBlock.length() >= BLOCK_SIZE) {
+                            output.append(shuffleOut(currentBlock.toString(), pad));
+                            currentBlock.setLength(0);
+                            pad = 0;
+                        }
+                        break;
+                }
+            }
+
+            if (currentBlock.length() > 0) {
+                throw new IllegalStateException("Incomplete block in input.");
+            }
+
+            long value = Long.parseLong(output.toString());
+            long result = value - shuffleSecret;
+            if (result < 0) {
+                return ERROR;
+            }
+            return result;
+        } catch (RuntimeException ex) {
+            return ERROR;
         }
     }
 
     public String getInfo() {
-        return "Offset=" + offset + ", mappings=" + numToCode.size();
+        return "Secret=" + shuffleSecret + ", mappings=" + unshuffle.size();
+    }
+
+    private String leftPadInflate(String id) {
+        int pad = id.length() % BLOCK_SIZE;
+        switch (pad) {
+            case 1:
+                return "00" + id;
+            case 2:
+                return "0" + id;
+            default:
+                return id;
+        }
+    }
+
+    private String leftPadDeflate(int pad, int result) {
+        switch (pad) {
+            case 0:
+                return Integer.toString(result);
+            case 1:
+                return "0" + result;
+            case 2:
+                return "00" + result;
+            case 3:
+                return "000";
+            default:
+                throw new IllegalArgumentException("Invalid pad length: " + pad);
+        }
+    }
+
+    private void buildShuffleTables(String str) {
+        if (str.length() < BLOCK_SIZE * 1000) {
+            throw new IllegalArgumentException("Random ID mapping must be at least 3000 characters long.");
+        }
+        for (int i = 0; i <= 999; i++) {
+            int idx = i * BLOCK_SIZE;
+            int end = idx + BLOCK_SIZE;
+            if (end > str.length()) {
+                throw new IllegalArgumentException("Random ID mapping is incomplete.");
+            }
+            String hex = str.substring(idx, end);
+            shuffle[i] = hex;
+            unshuffle.put(hex.toLowerCase(Locale.ROOT), i);
+        }
+    }
+
+    private String shuffleIn(String block) {
+        int index = Integer.parseInt(block);
+        if (index < 0 || index >= shuffle.length) {
+            throw new IllegalArgumentException("Block out of range: " + block);
+        }
+        String result = shuffle[index];
+        if (result != null) {
+            return result;
+        }
+        throw new IllegalArgumentException("No shuffle input for " + block);
+    }
+
+    private String shuffleOut(String block, int pad) {
+        Integer value = unshuffle.get(block.toLowerCase(Locale.ROOT));
+        if (value != null) {
+            return leftPadDeflate(pad, value);
+        }
+        throw new IllegalArgumentException("No shuffle output for " + block);
     }
 }

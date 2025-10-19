@@ -16,8 +16,8 @@ maximum-pool-size = 10
 connection-timeout = 30000
 
 [randomid]
-seed = 114514
-offset = 12500
+# Copy the full value produced by "litebans reveal web" (format: 1234:abc...)
+secret = ""
 ```
 
 You can also put your litebans messages.yml into plugin config folder

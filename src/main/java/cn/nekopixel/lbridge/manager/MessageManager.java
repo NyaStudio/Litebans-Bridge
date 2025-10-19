@@ -16,6 +16,7 @@ public class MessageManager {
     private final Map<String, Object> messages;
     private final SimpleDateFormat dateFormat;
     private final ConfigManager configManager;
+    private final String randomIdSecret;
     private randomID randomId;
 
     @SuppressWarnings("unchecked")
@@ -24,13 +25,15 @@ public class MessageManager {
         messages = yaml.load(messageFile);
         dateFormat = new SimpleDateFormat(messages.get("time_format").toString());
         this.configManager = configManager;
+        this.randomIdSecret = configManager.getRandomIdSecret();
     }
 
     private synchronized randomID getRandomId() {
         if (randomId == null) {
-            long seed = configManager.getRandomIdSeed();
-            int offset = configManager.getRandomIdOffset();
-            randomId = new randomID(seed, offset);
+            if (randomIdSecret == null || randomIdSecret.isEmpty()) {
+                return null;
+            }
+            randomId = new randomID(randomIdSecret);
         }
         return randomId;
     }
@@ -63,7 +66,12 @@ public class MessageManager {
                 .replace("$duration", formatDuration(ban.getTime(), ban.getUntil()));
 
         if (message.contains("$idRandom")) {
-            message = message.replace("$idRandom", getRandomId().convert(ban.getId()));
+            randomID obfuscator = getRandomId();
+            if (obfuscator != null) {
+                message = message.replace("$idRandom", obfuscator.convert(ban.getId()));
+            } else {
+                message = message.replace("$idRandom", String.valueOf(ban.getId()));
+            }
         }
         
         message = message.replace("$id", String.valueOf(ban.getId()));
@@ -143,6 +151,10 @@ public class MessageManager {
     }
     
     public String getRandomIdInfo() {
-        return getRandomId().getInfo();
+        randomID obfuscator = getRandomId();
+        if (obfuscator == null) {
+            return "Random ID disabled";
+        }
+        return obfuscator.getInfo();
     }
 } 
